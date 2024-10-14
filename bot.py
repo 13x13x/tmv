@@ -1,82 +1,61 @@
-from pyrogram import Client, filters
+from pyrogram import Client
 import requests
 from bs4 import BeautifulSoup
 import asyncio
 import os
 import uuid
 import nest_asyncio
+import feedparser
 
-# Replace with your own Telegram API credentials
-api_id = 24972774  # Your API ID
-api_hash = '188f227d40cdbfaa724f1f3cd059fd8b'  # Your API hash
-bot_token = '6641807680:AAFJMvQ-t6NaxIxoB2oU_ovzc73VDLVG8Gc'  # Your bot token
+api_id = 24972774
+api_hash = '188f227d40cdbfaa724f1f3cd059fd8b'
+bot_token = '6641807680:AAFJMvQ-t6NaxIxoB2oU_ovzc73VDLVG8Gc'
 
-# Define a unique session name using your user ID or a similar identifier
-session_name = f"web_scraper_bot_{api_id}_{uuid.uuid4()}"  # Using UUID for uniqueness
+session_name = f"web_scraper_bot_{api_id}_{uuid.uuid4()}"
 
-# Create the sessions directory if it doesn't exist
 os.makedirs("./sessions", exist_ok=True)
 
 app = Client(
-    session_name,  # Use the unique session name
+    session_name,
     api_id=api_id,
     api_hash=api_hash,
     bot_token=bot_token,
     workdir="./sessions"
 )
 
-# Function to scrape the webpage with filtering logic
-def scrape_website(url):
-    try:
-        response = requests.get(url)
-        if response.status_code == 200:
-            soup = BeautifulSoup(response.content, 'html.parser')
-            # Extract only links starting with the given patterns
-            links = [a['href'] for a in soup.find_all('a', href=True)
-                     if a['href'].startswith("magnet:?xt")]
-            return links
-        else:
-            return []  # Return empty list if status code is not 200
-    except Exception as e:
-        print(f"Error while scraping: {e}")
-        return []  # Return empty list in case of an error
+user_chat_id = 5549620776  # Your Telegram user ID
 
-# Function to send links or a message if no links found
-async def send_links_or_message(chat_id, links):
+def get_rss_links(feed_url):
+    try:
+        feed = feedparser.parse(feed_url)
+        links = []
+        for entry in feed.entries:
+            if 'link' in entry:
+                links.append(entry.link)
+        return links
+    except Exception as e:
+        return []
+
+async def send_links_or_message(links):
     if links:
         for link in links:
-            formatted_link = f"**/qbleech {link}** \n**Tag:** `@Arisu_0007 5549620776`"  # Use specified format
-            await app.send_message(chat_id, formatted_link)  # Send each link as a separate message
-            await asyncio.sleep(1)  # Adding a delay to prevent rate limiting
+            formatted_link = f"**/qbleech {link}** \n**Tag:** `@Arisu_0007 5549620776`"
+            await app.send_message(user_chat_id, formatted_link)
+            await asyncio.sleep(1)
     else:
-        # Send the "**Links Not Found!!**" message
-        await app.send_message(chat_id, "**Links Not Found!!**")
+        await app.send_message(user_chat_id, "**Links Not Found!!**")
 
-# Telegram command to trigger scraping
-@app.on_message(filters.command("tmv"))
-async def tmv(client, message):
-    try:
-        url = message.text.split(" ", 1)[1]  # Get URL from message
-        links = scrape_website(url)
-
-        # Send links or message if no links found
-        await send_links_or_message(message.chat.id, links)
-
-    except IndexError:
-        await message.reply_text("**Please provide a URL after the command, like this:** /scrape <url>")
-    except Exception as e:
-        await message.reply_text(f"Error: {str(e)}")
+async def automatic_tmv():
+    while True:
+        feed_url = "https://rss.app/feeds/FFh0vlIMaf9K5TPJ.xml"
+        links = get_rss_links(feed_url)
+        await send_links_or_message(links)
+        await asyncio.sleep(900)  # Wait for 900 seconds before checking again
 
 async def main():
-    await app.start()  # Start the bot
-    print("Bot is running...")
-    try:
-        await asyncio.Event().wait()  # Keep the bot running indefinitely
-    except Exception as e:
-        print(f"Error: {str(e)}")
-    finally:
-        await app.stop()  # Ensure the bot stops correctly
+    await app.start()
+    print("Bot started and will send RSS feed links every 900 seconds.")
+    await automatic_tmv()  # Start the automatic scraping process
 
-# Apply nest_asyncio and start the bot
 nest_asyncio.apply()
 asyncio.run(main())
