@@ -1,17 +1,17 @@
-# Use Python 3.10 as the base image
+# Use the official Python image from Docker Hub
 FROM python:3.10
 
 # Set the working directory in the container
 WORKDIR /app
 
-# Copy the requirements.txt file
+# Copy requirements.txt into the container
 COPY requirements.txt /app/
 
-# Install dependencies
-RUN pip3 install -r requirements.txt
+# Install the required packages
+RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy the current directory contents into the container at /app
-COPY . /app
+# Copy the bot code into the container
+COPY bot.py /app/
 
-# Define the command to run the bot
+# Command to run the bot
 CMD ["python3", "bot.py"]
