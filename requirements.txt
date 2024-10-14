@@ -3,3 +3,4 @@ TgCrypto
 beautifulsoup4
 requests
 nest_asyncio
+feedparser
